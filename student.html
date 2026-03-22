@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Saver — Student App</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: #E8E8E4; }
+  #root { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 20px 0; }
+  input::placeholder { color: #6B7280; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+
+const COLORS = {
+  primary: "#1B7A4A", primaryLight: "#E8F5EE", primaryDark: "#145A37",
+  accent: "#FF6B35", accentLight: "#FFF0EA",
+  bg: "#FAFAF7", card: "#FFFFFF", text: "#1A1A1A", textSecondary: "#6B7280",
+  border: "#E8E8E4", success: "#22C55E", warning: "#F59E0B",
+  urgentBg: "#FEF2F2", urgentText: "#DC2626", tagBg: "#F3F4F6",
+  retailer: "#1B7A4A", restaurant: "#FF6B35", hotel: "#7C3AED",
+};
+
+// Leaflet uses [lat, lng], stored as [lng, lat] for consistency with geo standards
+const SMU_CENTER = [103.8500, 1.2966];
+
+// ==================== FOOD SVG ICONS ====================
+const FoodIcons = {
+  bento: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><rect x="4" y="7" width="24" height="18" rx="3" stroke="#1B7A4A" strokeWidth="1.8" fill="#E8F5EE"/><line x1="4" y1="16" x2="28" y2="16" stroke="#1B7A4A" strokeWidth="1.5"/><line x1="16" y1="7" x2="16" y2="16" stroke="#1B7A4A" strokeWidth="1.5"/><circle cx="10" cy="11.5" r="2.5" fill="#FF6B35" opacity="0.7"/><circle cx="22" cy="11.5" r="2.5" fill="#22C55E" opacity="0.6"/><rect x="8" y="19" width="16" height="3" rx="1.5" fill="#F59E0B" opacity="0.5"/></svg>,
+  salad: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="20" rx="11" ry="7" stroke="#1B7A4A" strokeWidth="1.8" fill="#E8F5EE"/><path d="M10 18c2-6 4-10 6-10s4 4 6 10" stroke="#22C55E" strokeWidth="1.5" fill="none"/><circle cx="13" cy="17" r="2" fill="#DC2626" opacity="0.5"/><circle cx="19" cy="16" r="1.5" fill="#FF6B35" opacity="0.5"/></svg>,
+  sandwich: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><path d="M6 18L16 8l10 10" fill="#F59E0B" opacity="0.3" stroke="#F59E0B" strokeWidth="1.5"/><rect x="5" y="17" width="22" height="3" rx="1" fill="#22C55E" opacity="0.4"/><rect x="5" y="19.5" width="22" height="2.5" rx="1" fill="#FF6B35" opacity="0.3"/><rect x="5" y="21.5" width="22" height="3" rx="1.5" fill="#F59E0B" opacity="0.4" stroke="#D97706" strokeWidth="0.8"/></svg>,
+  buffet: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="14" rx="12" ry="4" stroke="#7C3AED" strokeWidth="1.5" fill="#F3E8FF" opacity="0.6"/><path d="M4 14v6c0 2.2 5.4 4 12 4s12-1.8 12-4v-6" stroke="#7C3AED" strokeWidth="1.5" fill="none"/><path d="M14 6v4M16 4v6M18 6v4" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/></svg>,
+  pasta: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="20" rx="10" ry="6" stroke="#FF6B35" strokeWidth="1.8" fill="#FFF0EA"/><path d="M9 17c2-1 3 1 5 0s3-1 5 0 3 1 4 0" stroke="#F59E0B" strokeWidth="1.8" strokeLinecap="round"/><circle cx="20" cy="15" r="1.5" fill="#DC2626" opacity="0.6"/></svg>,
+  onigiri: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><path d="M16 6L6 22h20L16 6z" fill="#F9FAFB" stroke="#374151" strokeWidth="1.5" strokeLinejoin="round"/><rect x="11" y="17" width="10" height="6" rx="1" fill="#1F2937" opacity="0.8"/></svg>,
+  milk: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><rect x="9" y="10" width="14" height="17" rx="2" stroke="#3B82F6" strokeWidth="1.5" fill="#EFF6FF"/><rect x="11" y="6" width="10" height="5" rx="1" stroke="#3B82F6" strokeWidth="1.2" fill="#DBEAFE"/><path d="M13 20h6" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round"/></svg>,
+  croissant: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><path d="M8 20c0-4 3-10 8-10s8 6 8 10c0 2-3 4-8 4s-8-2-8-4z" fill="#FEF3C7" stroke="#D97706" strokeWidth="1.5"/><path d="M11 16c2-3 4-5 5-5" stroke="#F59E0B" strokeWidth="1" opacity="0.6"/></svg>,
+  sushi: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><rect x="8" y="13" width="16" height="8" rx="4" fill="#F9FAFB" stroke="#374151" strokeWidth="1.5"/><rect x="10" y="15" width="12" height="4" rx="2" fill="#FF6B35" opacity="0.6"/><rect x="6" y="11" width="20" height="3" rx="1" fill="#1F2937" opacity="0.7"/></svg>,
+  dimsum: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="22" rx="10" ry="4" fill="#FEF3C7" stroke="#D97706" strokeWidth="1.2"/><ellipse cx="16" cy="18" rx="8" ry="5" fill="#FFF7ED" stroke="#F59E0B" strokeWidth="1.5"/><path d="M14 8v4M16 7v5M18 8v4" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/></svg>,
+  plate: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="20" rx="12" ry="5" stroke="#6B7280" strokeWidth="1.5" fill="#F3F4F6"/><ellipse cx="16" cy="18" rx="9" ry="3.5" fill="#F9FAFB" stroke="#9CA3AF" strokeWidth="1"/><circle cx="14" cy="17" r="1.5" fill="#22C55E" opacity="0.5"/><circle cx="18" cy="17" r="1" fill="#FF6B35" opacity="0.5"/></svg>,
+  fruit: (s=32) => <svg width={s} height={s} viewBox="0 0 32 32" fill="none"><circle cx="12" cy="18" r="6" fill="#DCFCE7" stroke="#22C55E" strokeWidth="1.5"/><circle cx="20" cy="16" r="5" fill="#FEE2E2" stroke="#DC2626" strokeWidth="1.2" opacity="0.7"/><circle cx="16" cy="20" r="4" fill="#FEF9C3" stroke="#F59E0B" strokeWidth="1.2" opacity="0.7"/></svg>,
+};
+
+const StoreIcons = {
+  retailer: (s=28) => <svg width={s} height={s} viewBox="0 0 28 28" fill="none"><rect x="4" y="12" width="20" height="12" rx="2" stroke={COLORS.retailer} strokeWidth="1.6" fill={COLORS.primaryLight}/><path d="M3 12l3-6h16l3 6" stroke={COLORS.retailer} strokeWidth="1.6" fill="none"/><rect x="11" y="17" width="6" height="7" rx="1" stroke={COLORS.retailer} strokeWidth="1.2" fill="white"/></svg>,
+  restaurant: (s=28) => <svg width={s} height={s} viewBox="0 0 28 28" fill="none"><path d="M8 4v8c0 2 2 3 4 3v9" stroke={COLORS.restaurant} strokeWidth="1.6" strokeLinecap="round"/><path d="M4 4v4c0 2.5 2 4 4 4" stroke={COLORS.restaurant} strokeWidth="1.6" strokeLinecap="round"/><line x1="20" y1="4" x2="20" y2="24" stroke={COLORS.restaurant} strokeWidth="1.6" strokeLinecap="round"/><path d="M20 4c0 5-4 6-4 10h4" stroke={COLORS.restaurant} strokeWidth="1.6" fill="none"/></svg>,
+  hotel: (s=28) => <svg width={s} height={s} viewBox="0 0 28 28" fill="none"><rect x="5" y="8" width="18" height="16" rx="2" stroke={COLORS.hotel} strokeWidth="1.6" fill="#F3E8FF" opacity="0.5"/><rect x="5" y="4" width="18" height="5" rx="1.5" stroke={COLORS.hotel} strokeWidth="1.4" fill="#EDE9FE"/><rect x="9" y="12" width="4" height="3" rx="0.5" fill={COLORS.hotel} opacity="0.3"/><rect x="15" y="12" width="4" height="3" rx="0.5" fill={COLORS.hotel} opacity="0.3"/><rect x="9" y="18" width="4" height="3" rx="0.5" fill={COLORS.hotel} opacity="0.3"/><rect x="15" y="18" width="4" height="3" rx="0.5" fill={COLORS.hotel} opacity="0.3"/></svg>,
+};
+
+const UI = {
+  home: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?COLORS.primary:COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  map: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?COLORS.primary:COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
+  orders: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?COLORS.primary:COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
+  profile: (a) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?COLORS.primary:COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  back: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevronRight: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>,
+  location: () => <svg width="14" height="14" viewBox="0 0 24 24" fill={COLORS.primary} stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>,
+  clock: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  star: () => <svg width="12" height="12" viewBox="0 0 24 24" fill={COLORS.warning} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  bell: (c) => <div style={{position:"relative",cursor:"pointer"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>{c>0&&<div style={{position:"absolute",top:-4,right:-6,width:16,height:16,borderRadius:"50%",background:COLORS.accent,color:"white",fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{c}</div>}</div>,
+  check: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  plus: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  close: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  fire: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1012 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>,
+  tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  package: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>,
+  heart: () => <svg width="18" height="18" viewBox="0 0 24 24" fill={COLORS.primary} stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
+  wallet: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+  bellMenu: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  bookmark: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>,
+  helpCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  graduation: () => <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4L2 10l12 6 12-6-12-6z" fill={COLORS.primaryLight} stroke={COLORS.primary} strokeWidth="1.5"/><path d="M6 12.5v6c0 1.5 3.6 3 8 3s8-1.5 8-3v-6" stroke={COLORS.primary} strokeWidth="1.5" fill="none"/><line x1="24" y1="10" x2="24" y2="20" stroke={COLORS.primary} strokeWidth="1.5" strokeLinecap="round"/></svg>,
+  crosshair: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>,
+};
+
+const foodIconMap = { "Bento Set (Chicken Katsu)": FoodIcons.bento, "Mixed Salad Bowl": FoodIcons.salad, "Sandwich Pack (Egg Mayo)": FoodIcons.sandwich, "Lunch Buffet Clearance": FoodIcons.buffet, "Pasta of the Day": FoodIcons.pasta, "Onigiri 3-Pack": FoodIcons.onigiri, "Fresh Milk 500ml": FoodIcons.milk, "Croissant Bundle (3pc)": FoodIcons.croissant, "Sushi Platter (12pc)": FoodIcons.sushi, "Dim Sum Combo": FoodIcons.dimsum, "Dinner Buffet Clearing": FoodIcons.plate, "Fruit Cup (Mixed)": FoodIcons.fruit };
+const getFoodIcon = (n, s=32) => (foodIconMap[n] || FoodIcons.plate)(s);
+const getStoreIcon = (t, s=28) => (StoreIcons[t] || StoreIcons.retailer)(s);
+const getStoreColor = (t) => COLORS[t] || COLORS.primary;
+const getStoreBg = (t) => t === "retailer" ? COLORS.primaryLight : t === "restaurant" ? COLORS.accentLight : "#F3E8FF";
+
+// ==================== DATA ====================
+const VENDORS = [
+  { id:1, name:"FairPrice Xpress", type:"retailer", distance:"0.2km", area:"Bras Basah", rating:4.5, deals:8, lng:103.8530, lat:1.2975 },
+  { id:2, name:"Cheers @ SMU", type:"retailer", distance:"0.1km", area:"Victoria St", rating:4.2, deals:5, lng:103.8505, lat:1.2960 },
+  { id:5, name:"7-Eleven Bencoolen", type:"retailer", distance:"0.4km", area:"Bencoolen St", rating:4.0, deals:12, lng:103.8490, lat:1.2995 },
+  { id:6, name:"Don Don Donki", type:"retailer", distance:"0.5km", area:"Orchard Rd", rating:4.6, deals:9, lng:103.8395, lat:1.3010 },
+  { id:9, name:"Cold Storage Raffles", type:"retailer", distance:"0.6km", area:"Raffles City", rating:4.3, deals:6, lng:103.8535, lat:1.2940 },
+  { id:10, name:"Sheng Siong Express", type:"retailer", distance:"0.7km", area:"Jalan Besar", rating:4.1, deals:7, lng:103.8570, lat:1.3060 },
+  { id:11, name:"Giant Express", type:"retailer", distance:"0.8km", area:"Bugis Junction", rating:4.0, deals:4, lng:103.8555, lat:1.3005 },
+  { id:12, name:"FairPrice Xtra", type:"retailer", distance:"0.9km", area:"City Square Mall", rating:4.4, deals:10, lng:103.8565, lat:1.3115 },
+];
+
+const DEALS = [
+  { id:1, vendorId:1, name:"Bento Set (Chicken Katsu)", original:8.90, saver:3.50, expiry:"2h left", category:"Ready Meals", qty:3, urgent:true },
+  { id:2, vendorId:1, name:"Mixed Salad Bowl", original:6.50, saver:2.80, expiry:"3h left", category:"Fresh Food", qty:5, urgent:false },
+  { id:3, vendorId:2, name:"Sandwich Pack (Egg Mayo)", original:4.20, saver:1.80, expiry:"1h left", category:"Sandwiches", qty:2, urgent:true },
+  { id:6, vendorId:5, name:"Onigiri 3-Pack", original:5.40, saver:2.20, expiry:"4h left", category:"Ready Meals", qty:8, urgent:false },
+  { id:7, vendorId:5, name:"Fresh Milk 500ml", original:3.20, saver:1.50, expiry:"1d left", category:"Dairy", qty:6, urgent:false },
+  { id:9, vendorId:6, name:"Sushi Platter (12pc)", original:15.90, saver:6.50, expiry:"2h left", category:"Ready Meals", qty:3, urgent:true },
+  { id:12, vendorId:6, name:"Fruit Cup (Mixed)", original:4.50, saver:1.80, expiry:"5h left", category:"Fresh Food", qty:10, urgent:false },
+  { id:13, vendorId:9, name:"Greek Yogurt Pack", original:5.80, saver:2.40, expiry:"1d left", category:"Dairy", qty:4, urgent:false },
+  { id:14, vendorId:9, name:"Croissant Bundle (3pc)", original:7.50, saver:3.00, expiry:"3h left", category:"Bakery", qty:2, urgent:false },
+  { id:15, vendorId:10, name:"Rice Bowl Set", original:6.90, saver:2.80, expiry:"2h left", category:"Ready Meals", qty:5, urgent:true },
+  { id:16, vendorId:10, name:"Fruit Salad Cup", original:4.20, saver:1.60, expiry:"4h left", category:"Fresh Food", qty:8, urgent:false },
+  { id:17, vendorId:11, name:"Pasta Salad", original:5.90, saver:2.50, expiry:"3h left", category:"Ready Meals", qty:3, urgent:false },
+  { id:18, vendorId:12, name:"Bento Deluxe Set", original:10.90, saver:4.50, expiry:"1h left", category:"Ready Meals", qty:2, urgent:true },
+  { id:19, vendorId:12, name:"Bread Loaf (Wholemeal)", original:3.80, saver:1.50, expiry:"1d left", category:"Bakery", qty:6, urgent:false },
+];
+
+const NOTIFICATIONS = [
+  { id:1, type:"urgent", title:"Expiring in 45 min!", body:"FairPrice Xtra: Bento Deluxe Set — $4.50 (was $10.90)", time:"2 min ago", read:false, dealId:18 },
+  { id:2, type:"deal", title:"New deal nearby", body:"Cold Storage Raffles posted Croissant Bundle — $3", time:"15 min ago", read:false, dealId:14 },
+  { id:3, type:"urgent", title:"Last 2 left!", body:"Cheers @ SMU: Egg Mayo Sandwich — only $1.80", time:"22 min ago", read:false, dealId:3 },
+  { id:4, type:"deal", title:"12 new deals", body:"7-Eleven Bencoolen just posted new deals", time:"1h ago", read:true, dealId:6 },
+  { id:5, type:"reserved", title:"Pickup reminder", body:"Pick up your Bento Set from FairPrice in 18 min", time:"1h ago", read:true, dealId:1 },
+  { id:6, type:"deal", title:"Price drop!", body:"Don Don Donki: Sushi Platter now $6.50", time:"2h ago", read:true, dealId:9 },
+  { id:7, type:"system", title:"Welcome to Saver!", body:"Discover value deals near campus", time:"1d ago", read:true, dealId:null },
+];
+
+const CATEGORIES = ["All","Ready Meals","Fresh Food","Bakery","Sandwiches","Dairy"];
+
+// ==================== SHARED ====================
+function Badge({children, color=COLORS.primary, bg=COLORS.primaryLight}) {
+  return <span style={{background:bg,color,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20,whiteSpace:"nowrap"}}>{children}</span>;
+}
+
+function DealCard({deal, onClick, compact=false}) {
+  const disc = Math.round((1-deal.saver/deal.original)*100);
+  return (
+    <div onClick={onClick} style={{background:COLORS.card,borderRadius:14,padding:compact?12:14,display:"flex",gap:12,cursor:"pointer",border:`1px solid ${COLORS.border}`,transition:"all 0.15s",position:"relative"}}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+      <div style={{width:compact?48:56,height:compact?48:56,borderRadius:12,background:COLORS.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{getFoodIcon(deal.name,compact?26:30)}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:600,color:COLORS.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deal.name}</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+          <span style={{fontSize:15,fontWeight:700,color:COLORS.primary}}>${deal.saver.toFixed(2)}</span>
+          <span style={{fontSize:11,color:COLORS.textSecondary,textDecoration:"line-through"}}>${deal.original.toFixed(2)}</span>
+          <Badge color={COLORS.accent} bg={COLORS.accentLight}>-{disc}%</Badge>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:COLORS.textSecondary}}>
+          <span style={{display:"flex",alignItems:"center",gap:3}}>{UI.clock()} {deal.expiry}</span>
+          <span>{deal.qty} left</span>
+        </div>
+      </div>
+      {deal.urgent&&<div style={{position:"absolute",top:8,right:8}}><Badge color={COLORS.urgentText} bg={COLORS.urgentBg}>Expiring soon</Badge></div>}
+    </div>
+  );
+}
+
+function VendorCard({vendor, onClick, horizontal=false}) {
+  const bg = getStoreBg(vendor.type);
+  if(horizontal) return (
+    <div onClick={onClick} style={{background:COLORS.card,borderRadius:14,padding:14,cursor:"pointer",border:`1px solid ${COLORS.border}`,display:"flex",gap:12,alignItems:"center",transition:"all 0.15s"}}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+      <div style={{width:46,height:46,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{getStoreIcon(vendor.type,24)}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,fontWeight:600,color:COLORS.text,marginBottom:2}}>{vendor.name}</div>
+        <div style={{fontSize:11,color:COLORS.textSecondary,display:"flex",alignItems:"center",gap:3}}>{UI.location()} {vendor.distance} · {vendor.area}</div>
+      </div>
+      <div style={{textAlign:"right",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:2,fontSize:12,marginBottom:4,justifyContent:"flex-end"}}>{UI.star()} {vendor.rating}</div>
+        <Badge>{vendor.deals} deals</Badge>
+      </div>
+    </div>
+  );
+  return (
+    <div onClick={onClick} style={{background:COLORS.card,borderRadius:14,padding:14,cursor:"pointer",border:`1px solid ${COLORS.border}`,minWidth:155,flex:"0 0 auto",transition:"all 0.15s"}}
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,0.06)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}>
+      <div style={{width:40,height:40,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}>{getStoreIcon(vendor.type,22)}</div>
+      <div style={{fontSize:13,fontWeight:600,color:COLORS.text,marginBottom:2}}>{vendor.name}</div>
+      <div style={{fontSize:11,color:COLORS.textSecondary,display:"flex",alignItems:"center",gap:3,marginBottom:6}}>{UI.location()} {vendor.distance} · {vendor.area}</div>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <span style={{display:"flex",alignItems:"center",gap:2,fontSize:11}}>{UI.star()} {vendor.rating}</span>
+        <Badge>{vendor.deals} deals</Badge>
+      </div>
+    </div>
+  );
+}
+
+// ==================== MAP SCREEN (SVG — PANNABLE + ZOOMABLE) ====================
+
+const MAP_PINS = [
+  { id:1, x:155, y:110 },   // FairPrice Xpress — Bras Basah
+  { id:2, x:138, y:130 },   // Cheers @ SMU — Victoria St
+  { id:5, x:90, y:80 },     // 7-Eleven — Bencoolen St
+  { id:6, x:40, y:55 },     // Don Don Donki — Orchard
+  { id:9, x:168, y:145 },   // Cold Storage — Raffles City
+  { id:10, x:195, y:45 },   // Sheng Siong — Jalan Besar
+  { id:11, x:175, y:70 },   // Giant Express — Bugis
+  { id:12, x:190, y:10 },   // FairPrice Xtra — City Square
+];
+const USER_POS = { x: 125, y: 125 };
+
+function SVGMapContent({ onPinClick, selectedId }) {
+  const roadMain = { stroke: "#FFFFFF", strokeWidth: 5, strokeLinecap: "round" };
+  const roadSec = { stroke: "#F5F5F0", strokeWidth: 3.5, strokeLinecap: "round" };
+  const roadOutline = { stroke: "#E0DDD5", strokeWidth: 7, strokeLinecap: "round" };
+  const roadOutlineSec = { stroke: "#E8E5DD", strokeWidth: 5, strokeLinecap: "round" };
+  const ls = { fontSize: 4.5, fill: "#9CA3AF", fontWeight: 500, fontFamily: "'DM Sans',system-ui,sans-serif", letterSpacing: "0.3px" };
+  const lm = { ...ls, fontSize: 5, fill: "#6B7280", fontWeight: 600 };
+
+  return (
+    <g>
+      <rect x="-100" y="-100" width="700" height="700" fill="#F0EDE6" />
+
+      {/* Water */}
+      <path d="M-50 440 Q80 420 160 435 Q260 450 340 425 Q420 415 500 430 L500 550 L-50 550 Z" fill="#D6E8F0" opacity="0.5" />
+      <path d="M300 410 Q360 395 400 405 Q440 415 500 408" fill="none" stroke="#C2D9E8" strokeWidth="1.5" opacity="0.6" />
+
+      {/* Parks */}
+      <path d="M-10 70 Q5 30 60 40 Q90 50 80 90 Q72 115 45 112 Q10 108 -10 70Z" fill="#D4E6D0" opacity="0.6" />
+      <text x="35" y="80" style={{ ...ls, fontSize: 4.5, fill: "#6D9B64" }} textAnchor="middle">Fort Canning Park</text>
+      <rect x="70" y="95" width="20" height="18" rx="3" fill="#D4E6D0" opacity="0.45" />
+      <text x="80" y="107" style={{ ...ls, fontSize: 3.5, fill: "#6D9B64" }} textAnchor="middle">National Museum</text>
+      <ellipse cx="210" cy="390" rx="25" ry="12" fill="#D4E6D0" opacity="0.35" />
+      <text x="210" y="393" style={{ ...ls, fontSize: 3.5, fill: "#6D9B64" }} textAnchor="middle">Esplanade Park</text>
+
+      {/* Buildings */}
+      <rect x="110" y="110" width="40" height="35" rx="4" fill="#E3E8E3" stroke="#C8D0C8" strokeWidth="0.5" opacity="0.7" />
+      <rect x="114" y="114" width="14" height="12" rx="2" fill="#D8DED8" opacity="0.5" />
+      <rect x="132" y="114" width="14" height="12" rx="2" fill="#D8DED8" opacity="0.5" />
+      <rect x="114" y="130" width="32" height="11" rx="2" fill="#D8DED8" opacity="0.5" />
+
+      <rect x="160" y="78" width="30" height="18" rx="2.5" fill="#E5E2DC" opacity="0.5" />
+      <rect x="200" y="65" width="22" height="25" rx="2.5" fill="#E5E2DC" opacity="0.5" />
+      <rect x="115" y="70" width="18" height="18" rx="2.5" fill="#E5E2DC" opacity="0.4" />
+      <rect x="125" y="160" width="34" height="22" rx="2.5" fill="#E5E2DC" opacity="0.5" />
+      <rect x="170" y="155" width="26" height="18" rx="2.5" fill="#E5E2DC" opacity="0.4" />
+      <rect x="80" y="155" width="22" height="18" rx="2.5" fill="#E5E2DC" opacity="0.4" />
+      <rect x="205" y="28" width="18" height="22" rx="2" fill="#E5E2DC" opacity="0.4" />
+      <rect x="230" y="15" width="26" height="18" rx="2" fill="#E5E2DC" opacity="0.35" />
+      <rect x="15" y="35" width="22" height="18" rx="2.5" fill="#E5E2DC" opacity="0.4" />
+      <rect x="25" y="130" width="18" height="22" rx="2" fill="#E5E2DC" opacity="0.4" />
+      <rect x="150" y="195" width="30" height="22" rx="2.5" fill="#E5E2DC" opacity="0.4" />
+      <rect x="195" y="200" width="22" height="18" rx="2.5" fill="#E5E2DC" opacity="0.35" />
+      {/* Extra spread buildings */}
+      <rect x="250" y="55" width="15" height="20" rx="2" fill="#E5E2DC" opacity="0.3" />
+      <rect x="60" y="180" width="20" height="14" rx="2" fill="#E5E2DC" opacity="0.3" />
+      <rect x="270" y="120" width="18" height="14" rx="2" fill="#E5E2DC" opacity="0.3" />
+
+      {/* Roads */}
+      <line x1="-50" y1="150" x2="500" y2="150" {...roadOutline} />
+      <line x1="-50" y1="150" x2="500" y2="150" {...roadMain} />
+      <line x1="-50" y1="120" x2="110" y2="105" {...roadOutline} />
+      <line x1="-50" y1="120" x2="110" y2="105" {...roadMain} />
+      <line x1="110" y1="105" x2="240" y2="180" {...roadOutline} />
+      <line x1="110" y1="105" x2="240" y2="180" {...roadMain} />
+      <line x1="105" y1="20" x2="250" y2="145" {...roadOutline} />
+      <line x1="105" y1="20" x2="250" y2="145" {...roadMain} />
+      <line x1="190" y1="-20" x2="225" y2="250" {...roadOutlineSec} />
+      <line x1="190" y1="-20" x2="225" y2="250" {...roadSec} />
+      <line x1="225" y1="250" x2="240" y2="500" {...roadOutlineSec} />
+      <line x1="225" y1="250" x2="240" y2="500" {...roadSec} />
+      <line x1="95" y1="-20" x2="95" y2="150" {...roadOutlineSec} />
+      <line x1="95" y1="-20" x2="95" y2="150" {...roadSec} />
+      <line x1="70" y1="90" x2="175" y2="90" {...roadOutlineSec} />
+      <line x1="70" y1="90" x2="175" y2="90" {...roadSec} />
+      <line x1="135" y1="42" x2="170" y2="150" {...roadOutlineSec} />
+      <line x1="135" y1="42" x2="170" y2="150" {...roadSec} />
+      <line x1="-50" y1="50" x2="50" y2="62" {...roadOutline} />
+      <line x1="-50" y1="50" x2="50" y2="62" {...roadMain} />
+      <line x1="95" y1="325" x2="500" y2="290" {...roadOutlineSec} />
+      <line x1="95" y1="325" x2="500" y2="290" {...roadSec} />
+      <line x1="65" y1="70" x2="140" y2="70" {...roadOutlineSec} />
+      <line x1="65" y1="70" x2="140" y2="70" {...roadSec} />
+      <line x1="72" y1="-20" x2="82" y2="90" {...roadOutlineSec} />
+      <line x1="72" y1="-20" x2="82" y2="90" {...roadSec} />
+
+      {/* Road labels */}
+      <text x="300" y="148" style={lm}>Bras Basah Road</text>
+      <text x="20" y="116" style={lm} transform="rotate(-5, 20, 116)">Stamford Rd</text>
+      <text x="140" y="52" style={ls} transform="rotate(-42, 140, 52)">Victoria St</text>
+      <text x="198" y="30" style={ls} transform="rotate(-82, 198, 30)">N. Bridge Rd</text>
+      <text x="86" y="30" style={ls} transform="rotate(-90, 86, 30)">Bencoolen St</text>
+      <text x="105" y="88" style={ls}>Waterloo St</text>
+      <text x="-30" y="48" style={ls}>Orchard Rd</text>
+      <text x="150" y="320" style={ls}>Nicoll Highway</text>
+      <text x="75" y="68" style={ls}>Prinsep St</text>
+      <text x="65" y="15" style={ls} transform="rotate(-85, 65, 15)">Selegie Rd</text>
+
+      {/* SMU label */}
+      <text x="130" y="127" style={{ fontSize: 7, fill: COLORS.primaryDark, fontWeight: 700, fontFamily: "'DM Sans',system-ui,sans-serif", letterSpacing: "1px", opacity: 0.55 }} textAnchor="middle">SMU</text>
+      <text x="130" y="138" style={{ fontSize: 4.5, fill: COLORS.primaryDark, fontWeight: 500, fontFamily: "'DM Sans',system-ui,sans-serif", opacity: 0.35 }} textAnchor="middle">Campus</text>
+
+      {/* Vendor pins */}
+      {MAP_PINS.map(mp => {
+        const v = VENDORS.find(x => x.id === mp.id);
+        if (!v) return null;
+        const color = COLORS.primary;
+        const sel = selectedId === v.id;
+        const label = v.name.length > 15 ? v.name.slice(0, 13) + ".." : v.name;
+        return (
+          <g key={v.id} onClick={(e) => { e.stopPropagation(); onPinClick(v); }}
+            style={{ cursor: "pointer" }}
+            transform={`translate(${mp.x}, ${mp.y})`}
+            opacity={selectedId && !sel ? 0.35 : 1}>
+            <rect x={-label.length * 1.7} y={-20} width={label.length * 3.4} height={9} rx="2.5" fill="white" stroke="#E0DDD5" strokeWidth="0.5" filter="url(#pinShadow)" />
+            <text x={0} y={-13.5} textAnchor="middle" style={{ fontSize: 4.5, fontWeight: 600, fill: "#1A1A1A", fontFamily: "'DM Sans',system-ui,sans-serif" }}>{label}</text>
+            <path d="M0 0C-4 0-7 3-7 7c0 5 7 12.5 7 12.5s7-7.5 7-12.5c0-4-3-7-7-7z" fill={color} transform={`translate(0, -10) scale(${sel ? 1.2 : 1})`} />
+            <circle cx="0" cy="-6.5" r="2.8" fill="white" transform={`scale(${sel ? 1.2 : 1})`} />
+            <rect x={-4} y={-6.5} width={8} height={5.5} rx={2.5} fill={color} transform={`translate(0, 3.5) scale(${sel ? 1.2 : 1})`} />
+            <text x={0} y={-0.2} textAnchor="middle" style={{ fontSize: 3.8, fill: "white", fontWeight: 700, fontFamily: "'DM Sans',system-ui,sans-serif" }} transform={`scale(${sel ? 1.2 : 1})`}>{v.deals}</text>
+          </g>
+        );
+      })}
+
+      {/* User dot */}
+      <circle cx={USER_POS.x} cy={USER_POS.y} r="6" fill={COLORS.primary} opacity="0.12">
+        <animate attributeName="r" values="6;9;6" dur="2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.12;0.04;0.12" dur="2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={USER_POS.x} cy={USER_POS.y} r="3" fill={COLORS.primary} stroke="white" strokeWidth="1.5" />
+
+      <defs>
+        <filter id="pinShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" floodOpacity="0.12" />
+        </filter>
+      </defs>
+    </g>
+  );
+}
+
+function MapScreen({setScreen, setSelectedVendor, setSelectedDeal}) {
+  const [pin, setPin] = useState(null);
+  const [panel, setPanel] = useState(false);
+
+  // Pan & zoom state
+  const [viewBox, setViewBox] = useState({ x: 25, y: 25, w: 250, h: 250 });
+  const dragRef = useRef(null);
+  const svgRef = useRef(null);
+  const lastTouchDist = useRef(null);
+
+  const handlePinClick = (v) => { setPin(v); setPanel(true); };
+  const recenter = () => { setPin(null); setPanel(false); setViewBox({ x: 25, y: 25, w: 250, h: 250 }); };
+  const vDeals = pin ? DEALS.filter(d => d.vendorId === pin.id) : [];
+
+  // Mouse drag
+  const onMouseDown = (e) => {
+    if (e.target.closest('[style*="cursor: pointer"]')) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, vb: { ...viewBox } };
+  };
+  const onMouseMove = (e) => {
+    if (!dragRef.current) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = viewBox.w / rect.width;
+    const scaleY = viewBox.h / rect.height;
+    const dx = (e.clientX - dragRef.current.startX) * scaleX;
+    const dy = (e.clientY - dragRef.current.startY) * scaleY;
+    setViewBox({ ...dragRef.current.vb, x: dragRef.current.vb.x - dx, y: dragRef.current.vb.y - dy });
+  };
+  const onMouseUp = () => { dragRef.current = null; };
+
+  // Touch drag + pinch zoom
+  const onTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      dragRef.current = { startX: t.clientX, startY: t.clientY, vb: { ...viewBox } };
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDist.current = Math.sqrt(dx * dx + dy * dy);
+      dragRef.current = null;
+    }
+  };
+  const onTouchMove = (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && dragRef.current) {
+      const t = e.touches[0];
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+      const dx = (t.clientX - dragRef.current.startX) * scaleX;
+      const dy = (t.clientY - dragRef.current.startY) * scaleY;
+      setViewBox({ ...dragRef.current.vb, x: dragRef.current.vb.x - dx, y: dragRef.current.vb.y - dy });
+    } else if (e.touches.length === 2 && lastTouchDist.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ratio = lastTouchDist.current / dist;
+      lastTouchDist.current = dist;
+      setViewBox(vb => {
+        const newW = Math.max(80, Math.min(500, vb.w * ratio));
+        const newH = Math.max(80, Math.min(500, vb.h * ratio));
+        const cx = vb.x + vb.w / 2;
+        const cy = vb.y + vb.h / 2;
+        return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH };
+      });
+    }
+  };
+  const onTouchEnd = () => { dragRef.current = null; lastTouchDist.current = null; };
+
+  // Scroll zoom
+  const onWheel = (e) => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.1 : 0.9;
+    setViewBox(vb => {
+      const newW = Math.max(80, Math.min(500, vb.w * factor));
+      const newH = Math.max(80, Math.min(500, vb.h * factor));
+      const cx = vb.x + vb.w / 2;
+      const cy = vb.y + vb.h / 2;
+      return { x: cx - newW / 2, y: cy - newH / 2, w: newW, h: newH };
+    });
+  };
+
+  // Zoom buttons
+  const zoomIn = () => setViewBox(vb => {
+    const newW = Math.max(80, vb.w * 0.75); const newH = Math.max(80, vb.h * 0.75);
+    return { x: vb.x + (vb.w - newW) / 2, y: vb.y + (vb.h - newH) / 2, w: newW, h: newH };
+  });
+  const zoomOut = () => setViewBox(vb => {
+    const newW = Math.min(500, vb.w * 1.35); const newH = Math.min(500, vb.h * 1.35);
+    return { x: vb.x + (vb.w - newW) / 2, y: vb.y + (vb.h - newH) / 2, w: newW, h: newH };
+  });
+
+  return (
+    <div style={{height:"100%",display:"flex",flexDirection:"column",position:"relative"}}>
+      {/* Search */}
+      <div style={{position:"absolute",top:0,left:0,right:0,zIndex:10,padding:"12px 20px",display:"flex",gap:10}}>
+        <div style={{flex:1,background:COLORS.card,borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 2px 12px rgba(0,0,0,0.1)",border:`1px solid ${COLORS.border}`}}>
+          {UI.search()}
+          <span style={{fontSize:13,color:COLORS.textSecondary}}>Search this area...</span>
+        </div>
+      </div>
+
+      {/* Map */}
+      <div style={{flex:1,minHeight:panel?240:480,overflow:"hidden",position:"relative",touchAction:"none"}}>
+        <svg
+          ref={svgRef}
+          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+          width="100%" height="100%"
+          style={{ display: "block", cursor: "grab", userSelect: "none" }}
+          onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+          onWheel={onWheel}
+        >
+          <SVGMapContent onPinClick={handlePinClick} selectedId={pin?.id} />
+        </svg>
+
+        {/* Zoom controls */}
+        <div style={{position:"absolute",bottom:16,right:12,display:"flex",flexDirection:"column",gap:2,zIndex:5}}>
+          <div onClick={zoomIn} style={{background:COLORS.card,borderRadius:"8px 8px 0 0",padding:"6px 10px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",textAlign:"center",fontSize:16,fontWeight:700,color:COLORS.text,lineHeight:1,userSelect:"none",borderBottom:`1px solid ${COLORS.border}`}}>+</div>
+          <div onClick={zoomOut} style={{background:COLORS.card,borderRadius:"0 0 8px 8px",padding:"6px 10px",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",textAlign:"center",fontSize:16,fontWeight:700,color:COLORS.text,lineHeight:1,userSelect:"none"}}>−</div>
+        </div>
+
+        {/* Legend — retailers only */}
+        <div style={{position:"absolute",top:56,right:12,background:"rgba(255,255,255,0.95)",borderRadius:10,padding:"8px 10px",fontSize:10,display:"flex",alignItems:"center",gap:5,boxShadow:"0 2px 8px rgba(0,0,0,0.08)"}}>
+          <div style={{width:8,height:8,borderRadius:"50%",background:COLORS.primary}}/><span style={{color:COLORS.textSecondary,fontWeight:500}}>Retailer</span>
+        </div>
+        {/* Recenter */}
+        <div onClick={recenter} style={{position:"absolute",top:56,left:12,background:COLORS.card,borderRadius:10,padding:8,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.1)"}}>{UI.crosshair()}</div>
+      </div>
+
+      {/* Bottom panel */}
+      {panel && pin && (
+        <div style={{background:COLORS.card,borderTop:`1px solid ${COLORS.border}`,padding:"16px 20px",maxHeight:260,overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+              <div style={{width:42,height:42,borderRadius:12,background:COLORS.primaryLight,display:"flex",alignItems:"center",justifyContent:"center"}}>{getStoreIcon("retailer",24)}</div>
+              <div>
+                <div style={{fontSize:15,fontWeight:700}}>{pin.name}</div>
+                <div style={{fontSize:11,color:COLORS.textSecondary,display:"flex",alignItems:"center",gap:4}}>{UI.location()} {pin.distance} · {pin.area} <span style={{marginLeft:4,display:"flex",alignItems:"center",gap:2}}>{UI.star()} {pin.rating}</span></div>
+              </div>
+            </div>
+            <div onClick={()=>{setPanel(false);setPin(null);}} style={{cursor:"pointer",padding:2}}>{UI.close()}</div>
+          </div>
+          <div onClick={()=>{setSelectedVendor(pin);setScreen("vendor");}} style={{background:COLORS.primaryLight,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",marginBottom:10}}>
+            <span style={{fontSize:12,fontWeight:600,color:COLORS.primary}}>View all {vDeals.length} deals</span>
+            <span style={{fontSize:14,color:COLORS.primary}}>→</span>
+          </div>
+          {vDeals.slice(0,2).map(d=><div key={d.id} style={{marginBottom:8}}><DealCard deal={d} compact onClick={()=>{setSelectedDeal(d);setScreen("deal");}}/></div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== REMAINING SCREENS ====================
+function HomeScreen({setScreen, setSelectedDeal, setSelectedVendor, notifications}) {
+  const [cat,setCat]=useState("All");
+  const filtered=cat==="All"?DEALS:DEALS.filter(d=>d.category===cat);
+  const unread=notifications.filter(n=>!n.read).length;
+  const urgentCount=DEALS.filter(d=>d.urgent).length;
+
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"16px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:13,color:COLORS.textSecondary,marginBottom:2}}>Near SMU Campus</div>
+          <div style={{fontSize:20,fontWeight:700,color:COLORS.text,fontFamily:"'DM Serif Display', Georgia, serif"}}>Good deals nearby</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div onClick={()=>setScreen("notifications")}>{UI.bell(unread)}</div>
+          <div style={{width:36,height:36,borderRadius:"50%",background:COLORS.primaryLight,display:"flex",alignItems:"center",justifyContent:"center"}}>{UI.graduation()}</div>
+        </div>
+      </div>
+      <div style={{padding:"14px 20px"}}><div style={{background:COLORS.card,borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,border:`1px solid ${COLORS.border}`}}>{UI.search()}<span style={{fontSize:14,color:COLORS.textSecondary}}>Search deals, stores...</span></div></div>
+      {urgentCount>0&&(
+        <div style={{padding:"0 20px",marginBottom:16}}>
+          <div onClick={()=>setScreen("notifications")} style={{background:"linear-gradient(135deg, #FF6B35 0%, #FF8F65 100%)",borderRadius:14,padding:"14px 16px",color:"white",cursor:"pointer"}}>
+            <div style={{fontSize:12,fontWeight:500,opacity:0.9,marginBottom:2}}>EXPIRING SOON</div>
+            <div style={{fontSize:15,fontWeight:700}}>{urgentCount} deals ending within 2 hours</div>
+            <div style={{fontSize:12,opacity:0.85,marginTop:4}}>Tap to see all alerts</div>
+          </div>
+        </div>
+      )}
+      <div style={{padding:"0 20px",marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:15,fontWeight:700,color:COLORS.text}}>Nearby Stores</div>
+          <span onClick={()=>setScreen("allStores")} style={{fontSize:12,color:COLORS.primary,fontWeight:600,cursor:"pointer"}}>See all</span>
+        </div>
+        <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:4,margin:"0 -20px",padding:"0 20px"}}>
+          {VENDORS.slice(0,5).map(v=><VendorCard key={v.id} vendor={v} onClick={()=>{setSelectedVendor(v);setScreen("vendor");}}/>)}
+        </div>
+      </div>
+      <div style={{padding:"0 20px",marginBottom:14}}><div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,margin:"0 -20px",padding:"0 20px"}}>
+        {CATEGORIES.map(c=><button key={c} onClick={()=>setCat(c)} style={{background:cat===c?COLORS.primary:COLORS.card,color:cat===c?"white":COLORS.textSecondary,border:`1px solid ${cat===c?COLORS.primary:COLORS.border}`,borderRadius:20,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>)}
+      </div></div>
+      <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{fontSize:15,fontWeight:700,color:COLORS.text}}>{filtered.length} deals available</div>
+        {filtered.map(d=><DealCard key={d.id} deal={d} onClick={()=>{setSelectedDeal(d);setScreen("deal");}}/>)}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsScreen({setScreen, notifications, setNotifications, setSelectedDeal}) {
+  const markAllRead=()=>setNotifications(notifications.map(n=>({...n,read:true})));
+  const handleTap=(n)=>{setNotifications(notifications.map(x=>x.id===n.id?{...x,read:true}:x));if(n.dealId){const d=DEALS.find(x=>x.id===n.dealId);if(d){setSelectedDeal(d);setScreen("deal");}}};
+  const iconFor=(t)=>({urgent:{icon:UI.fire(),bg:COLORS.urgentBg},deal:{icon:UI.tag(),bg:COLORS.primaryLight},reserved:{icon:UI.package(),bg:"#EFF6FF"},system:{icon:UI.heart(),bg:COLORS.primaryLight}}[t]||{icon:UI.tag(),bg:COLORS.tagBg});
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}><div onClick={()=>setScreen("home")} style={{cursor:"pointer",padding:4}}>{UI.back()}</div><span style={{fontSize:15,fontWeight:600}}>Notifications</span></div>
+        <span onClick={markAllRead} style={{fontSize:12,color:COLORS.primary,fontWeight:600,cursor:"pointer"}}>Mark all read</span>
+      </div>
+      <div style={{padding:"0 20px"}}>{notifications.map(n=>{const{icon,bg}=iconFor(n.type);return(
+        <div key={n.id} onClick={()=>handleTap(n)} style={{display:"flex",gap:12,padding:"14px 0",borderBottom:`1px solid ${COLORS.border}`,cursor:"pointer",opacity:n.read?0.6:1}}>
+          <div style={{width:40,height:40,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
+              <div style={{fontSize:13,fontWeight:600,color:COLORS.text}}>{n.title}</div>
+              {!n.read&&<div style={{width:8,height:8,borderRadius:"50%",background:COLORS.accent,flexShrink:0,marginTop:4}}/>}
+            </div>
+            <div style={{fontSize:12,color:COLORS.textSecondary,lineHeight:1.4,marginBottom:4}}>{n.body}</div>
+            <div style={{fontSize:11,color:COLORS.textSecondary}}>{n.time}</div>
+          </div>
+        </div>
+      );})}</div>
+    </div>
+  );
+}
+
+function AllStoresScreen({setScreen, setSelectedVendor}) {
+  const [f,setF]=useState("all");const [s,setS]=useState("distance");
+  let stores=[...VENDORS];if(f!=="all")stores=stores.filter(v=>v.type===f);
+  if(s==="distance")stores.sort((a,b)=>parseFloat(a.distance)-parseFloat(b.distance));else if(s==="rating")stores.sort((a,b)=>b.rating-a.rating);else stores.sort((a,b)=>b.deals-a.deals);
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"12px 20px",display:"flex",alignItems:"center",gap:12}}><div onClick={()=>setScreen("home")} style={{cursor:"pointer",padding:4}}>{UI.back()}</div><span style={{fontSize:15,fontWeight:600,flex:1}}>All Nearby Stores</span><span style={{fontSize:12,color:COLORS.textSecondary}}>{stores.length} found</span></div>
+      <div style={{padding:"0 20px",marginBottom:14}}>
+        <div style={{display:"flex",gap:8,marginBottom:10}}>{[{key:"all",label:"All"},{key:"retailer",label:"Retailers"},{key:"restaurant",label:"Restaurants"},{key:"hotel",label:"Hotels"}].map(x=><button key={x.key} onClick={()=>setF(x.key)} style={{background:f===x.key?COLORS.primary:COLORS.card,color:f===x.key?"white":COLORS.textSecondary,border:`1px solid ${f===x.key?COLORS.primary:COLORS.border}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{x.label}</button>)}</div>
+        <div style={{display:"flex",gap:8}}>{[{key:"distance",label:"Nearest"},{key:"rating",label:"Top rated"},{key:"deals",label:"Most deals"}].map(x=><button key={x.key} onClick={()=>setS(x.key)} style={{background:s===x.key?COLORS.primaryLight:"transparent",color:s===x.key?COLORS.primary:COLORS.textSecondary,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>{x.label}</button>)}</div>
+      </div>
+      <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10}}>{stores.map(v=><VendorCard key={v.id} vendor={v} horizontal onClick={()=>{setSelectedVendor(v);setScreen("vendor");}}/>)}</div>
+    </div>
+  );
+}
+
+function DealDetailScreen({deal, setScreen}) {
+  const [reserved,setReserved]=useState(false);const [pay,setPay]=useState("store");
+  const vendor=VENDORS.find(v=>v.id===deal.vendorId);const disc=Math.round((1-deal.saver/deal.original)*100);
+  return (
+    <div style={{paddingBottom:100}}>
+      <div style={{padding:"12px 20px",display:"flex",alignItems:"center",gap:12}}><div onClick={()=>setScreen("home")} style={{cursor:"pointer",padding:4}}>{UI.back()}</div><span style={{fontSize:15,fontWeight:600}}>Deal Details</span></div>
+      <div style={{margin:"0 20px",borderRadius:18,background:"linear-gradient(135deg, #E8F5EE 0%, #D4EDDA 100%)",height:170,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:20,position:"relative"}}>
+        {getFoodIcon(deal.name,80)}
+        {deal.urgent&&<div style={{position:"absolute",top:12,left:12}}><Badge color={COLORS.urgentText} bg={COLORS.urgentBg}>Expiring soon</Badge></div>}
+        <div style={{position:"absolute",top:12,right:12}}><Badge color="white" bg={COLORS.accent}>-{disc}%</Badge></div>
+      </div>
+      <div style={{padding:"0 20px"}}>
+        <div style={{fontSize:20,fontWeight:700,color:COLORS.text,marginBottom:6,fontFamily:"'DM Serif Display', Georgia, serif"}}>{deal.name}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+          <span style={{fontSize:24,fontWeight:700,color:COLORS.primary}}>${deal.saver.toFixed(2)}</span>
+          <span style={{fontSize:16,color:COLORS.textSecondary,textDecoration:"line-through"}}>${deal.original.toFixed(2)}</span>
+          <span style={{fontSize:13,color:COLORS.accent,fontWeight:600}}>Save ${(deal.original-deal.saver).toFixed(2)}</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+          <div style={{background:COLORS.bg,borderRadius:12,padding:12}}><div style={{fontSize:11,color:COLORS.textSecondary,marginBottom:4}}>Pickup by</div><div style={{fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>{UI.clock()} {deal.expiry}</div></div>
+          <div style={{background:COLORS.bg,borderRadius:12,padding:12}}><div style={{fontSize:11,color:COLORS.textSecondary,marginBottom:4}}>Stock left</div><div style={{fontSize:14,fontWeight:600}}>{deal.qty} available</div></div>
+        </div>
+        <div style={{background:COLORS.card,borderRadius:14,padding:14,border:`1px solid ${COLORS.border}`,marginBottom:20,display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:44,height:44,borderRadius:12,background:getStoreBg(vendor?.type),display:"flex",alignItems:"center",justifyContent:"center"}}>{vendor&&getStoreIcon(vendor.type,24)}</div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{vendor?.name}</div><div style={{fontSize:12,color:COLORS.textSecondary,display:"flex",alignItems:"center",gap:4}}>{UI.location()} {vendor?.distance} · {vendor?.area}</div></div>
+          <div style={{display:"flex",alignItems:"center",gap:2,fontSize:12,fontWeight:600,color:COLORS.warning}}>{UI.star()} {vendor?.rating}</div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>Payment method</div>
+          {[{key:"store",label:"Pay at store",desc:"Show reservation, pay at counter"},{key:"paynow",label:"PayNow / Card",desc:"Pay now, show confirmation on pickup"}].map(pm=>(
+            <div key={pm.key} onClick={()=>setPay(pm.key)} style={{background:pay===pm.key?COLORS.primaryLight:COLORS.card,borderRadius:12,padding:"12px 14px",marginBottom:8,cursor:"pointer",border:`1.5px solid ${pay===pm.key?COLORS.primary:COLORS.border}`,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${pay===pm.key?COLORS.primary:COLORS.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{pay===pm.key&&<div style={{width:10,height:10,borderRadius:"50%",background:COLORS.primary}}/>}</div>
+              <div><div style={{fontSize:13,fontWeight:600}}>{pm.label}</div><div style={{fontSize:11,color:COLORS.textSecondary}}>{pm.desc}</div></div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:"#FFFBEB",borderRadius:12,padding:12,marginBottom:20,border:"1px solid #FEF3C7",fontSize:12,color:"#92400E"}}>This item is within its safe consumption window. Please consume by the stated expiry.</div>
+      </div>
+      <div style={{position:"sticky",bottom:0,padding:"12px 20px 20px",background:"linear-gradient(180deg, transparent 0%, white 20%)"}}>
+        {reserved?(
+          <div style={{background:COLORS.primaryLight,borderRadius:14,padding:"16px 20px",display:"flex",alignItems:"center",gap:10,border:`1.5px solid ${COLORS.primary}`}}>
+            {UI.check()}<div><div style={{fontSize:14,fontWeight:700,color:COLORS.primary}}>Reserved for 30 min</div><div style={{fontSize:12,color:COLORS.textSecondary}}>{pay==="store"?"Show this screen at counter":"Confirmation sent"}</div></div>
+          </div>
+        ):(
+          <button onClick={()=>setReserved(true)} style={{width:"100%",background:COLORS.primary,color:"white",border:"none",borderRadius:14,padding:"16px 20px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Reserve · ${deal.saver.toFixed(2)}</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VendorScreen({vendor, setScreen, setSelectedDeal}) {
+  const vd=DEALS.filter(d=>d.vendorId===vendor.id);
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"12px 20px",display:"flex",alignItems:"center",gap:12}}><div onClick={()=>setScreen("home")} style={{cursor:"pointer",padding:4}}>{UI.back()}</div><span style={{fontSize:15,fontWeight:600}}>Store Details</span></div>
+      <div style={{padding:"0 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+          <div style={{width:54,height:54,borderRadius:16,background:getStoreBg(vendor.type),display:"flex",alignItems:"center",justifyContent:"center"}}>{getStoreIcon(vendor.type,30)}</div>
+          <div>
+            <div style={{fontSize:18,fontWeight:700,fontFamily:"'DM Serif Display', Georgia, serif"}}>{vendor.name}</div>
+            <div style={{fontSize:12,color:COLORS.textSecondary,display:"flex",alignItems:"center",gap:4}}>{UI.location()} {vendor.distance} · {vendor.area}</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}><span style={{display:"flex",alignItems:"center",gap:2,fontSize:12}}>{UI.star()} {vendor.rating}</span><Badge>{vendor.type.charAt(0).toUpperCase()+vendor.type.slice(1)}</Badge></div>
+          </div>
+        </div>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{vd.length} deals available</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {vd.map(d=><DealCard key={d.id} deal={d} onClick={()=>{setSelectedDeal(d);setScreen("deal");}}/>)}
+          {vd.length===0&&<div style={{textAlign:"center",padding:30,color:COLORS.textSecondary,fontSize:13}}>No deals right now</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrdersScreen() {
+  const res=DEALS.slice(0,2);
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"16px 20px 14px"}}><div style={{fontSize:20,fontWeight:700,fontFamily:"'DM Serif Display', Georgia, serif"}}>My Orders</div></div>
+      <div style={{padding:"0 20px"}}>
+        <div style={{fontSize:13,fontWeight:600,color:COLORS.textSecondary,marginBottom:10}}>Active Reservations</div>
+        {res.map(d=>{const v=VENDORS.find(x=>x.id===d.vendorId);return(
+          <div key={d.id} style={{background:COLORS.card,borderRadius:14,padding:14,marginBottom:10,border:`1.5px solid ${COLORS.primary}`}}>
+            <div style={{display:"flex",gap:12,marginBottom:10}}>
+              <div style={{width:44,height:44,borderRadius:10,background:COLORS.primaryLight,display:"flex",alignItems:"center",justifyContent:"center"}}>{getFoodIcon(d.name,24)}</div>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{d.name}</div><div style={{fontSize:12,color:COLORS.textSecondary}}>{v?.name}</div></div>
+              <div style={{fontSize:16,fontWeight:700,color:COLORS.primary}}>${d.saver.toFixed(2)}</div>
+            </div>
+            <div style={{background:COLORS.primaryLight,borderRadius:10,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:12,color:COLORS.primaryDark,fontWeight:600}}>Pickup within 30 min</div><Badge color="white" bg={COLORS.primary}>Active</Badge>
+            </div>
+          </div>
+        );})}
+        <div style={{fontSize:13,fontWeight:600,color:COLORS.textSecondary,marginTop:20,marginBottom:10}}>Past Orders</div>
+        <div style={{textAlign:"center",padding:20,color:COLORS.textSecondary,fontSize:13}}>No past orders yet</div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({setScreen}) {
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"16px 20px 14px"}}><div style={{fontSize:20,fontWeight:700,fontFamily:"'DM Serif Display', Georgia, serif"}}>Profile</div></div>
+      <div style={{padding:"0 20px"}}>
+        <div style={{background:COLORS.card,borderRadius:16,padding:20,marginBottom:16,border:`1px solid ${COLORS.border}`,textAlign:"center"}}>
+          <div style={{width:64,height:64,borderRadius:"50%",background:COLORS.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>{UI.graduation()}</div>
+          <div style={{fontSize:16,fontWeight:700}}>Alex Tan</div><div style={{fontSize:12,color:COLORS.textSecondary}}>SMU Student · Singapore</div>
+        </div>
+        <div style={{background:"linear-gradient(135deg, #1B7A4A 0%, #22A05E 100%)",borderRadius:16,padding:20,marginBottom:16,color:"white"}}>
+          <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginBottom:8}}>YOUR IMPACT</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div><div style={{fontSize:22,fontWeight:700}}>$47</div><div style={{fontSize:11,opacity:0.8}}>Total saved</div></div>
+            <div><div style={{fontSize:22,fontWeight:700}}>12</div><div style={{fontSize:11,opacity:0.8}}>Meals rescued</div></div>
+            <div><div style={{fontSize:22,fontWeight:700}}>4.2kg</div><div style={{fontSize:11,opacity:0.8}}>Waste prevented</div></div>
+            <div><div style={{fontSize:22,fontWeight:700}}>8</div><div style={{fontSize:11,opacity:0.8}}>Stores visited</div></div>
+          </div>
+        </div>
+        {[{icon:StoreIcons.retailer(18),label:"Switch to Vendor Mode",action:()=>setScreen("vendorDash")},{icon:UI.wallet(),label:"Payment Methods"},{icon:UI.bellMenu(),label:"Notifications",action:()=>setScreen("notifications")},{icon:UI.bookmark(),label:"Saved Stores"},{icon:UI.helpCircle(),label:"Help & Support"}].map((item,i)=>(
+          <div key={i} onClick={item.action} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 0",borderBottom:`1px solid ${COLORS.border}`,cursor:item.action?"pointer":"default"}}>
+            <span style={{width:24,display:"flex",justifyContent:"center"}}>{item.icon}</span>
+            <span style={{fontSize:14,fontWeight:500,flex:1}}>{item.label}</span>{UI.chevronRight()}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VendorDashboard({setScreen}) {
+  const [tab,setTab]=useState("active");const myDeals=DEALS.slice(0,4);
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"16px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:13,color:COLORS.textSecondary}}>Vendor Dashboard</div><div style={{fontSize:20,fontWeight:700,fontFamily:"'DM Serif Display', Georgia, serif"}}>FairPrice Xpress</div></div>
+        <div onClick={()=>setScreen("home")} style={{background:COLORS.primaryLight,borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:600,color:COLORS.primary,cursor:"pointer"}}>Switch to Buyer</div>
+      </div>
+      <div style={{padding:"16px 20px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        {[{label:"Active Deals",value:"4",color:COLORS.primary},{label:"Saved Today",value:"$28",color:COLORS.success},{label:"Items Sold",value:"12",color:COLORS.accent}].map((s,i)=>(
+          <div key={i} style={{background:COLORS.card,borderRadius:12,padding:12,border:`1px solid ${COLORS.border}`,textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:s.color}}>{s.value}</div><div style={{fontSize:10,color:COLORS.textSecondary,marginTop:2}}>{s.label}</div></div>
+        ))}
+      </div>
+      <div style={{padding:"0 20px",marginBottom:16}}><button onClick={()=>setScreen("addDeal")} style={{width:"100%",background:COLORS.primary,color:"white",border:"none",borderRadius:14,padding:"14px 20px",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{UI.plus()} Post New Deal</button></div>
+      <div style={{padding:"0 20px",marginBottom:14}}><div style={{display:"flex",background:COLORS.bg,borderRadius:10,padding:3}}>
+        {["active","expired","analytics"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,background:tab===t?COLORS.card:"transparent",border:"none",borderRadius:8,padding:"9px 0",fontSize:12,fontWeight:600,color:tab===t?COLORS.text:COLORS.textSecondary,cursor:"pointer",boxShadow:tab===t?"0 1px 3px rgba(0,0,0,0.08)":"none",textTransform:"capitalize"}}>{t}</button>)}
+      </div></div>
+      <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10}}>
+        {tab==="active"&&myDeals.map(d=><DealCard key={d.id} deal={d} compact onClick={()=>{}}/>)}
+        {tab==="expired"&&<div style={{textAlign:"center",padding:30,color:COLORS.textSecondary,fontSize:13}}>No expired deals today</div>}
+        {tab==="analytics"&&[{label:"Waste reduced this week",value:"23 items",sub:"~$85 saved from disposal"},{label:"Most popular category",value:"Ready Meals",sub:"67% of redemptions"},{label:"Peak redemption time",value:"12 PM – 2 PM",sub:"Lunch rush drives 40% of sales"}].map((s,i)=>(
+          <div key={i} style={{background:COLORS.card,borderRadius:12,padding:14,border:`1px solid ${COLORS.border}`}}><div style={{fontSize:11,color:COLORS.textSecondary,marginBottom:4}}>{s.label}</div><div style={{fontSize:16,fontWeight:700,color:COLORS.text}}>{s.value}</div><div style={{fontSize:11,color:COLORS.textSecondary,marginTop:2}}>{s.sub}</div></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AddDealScreen({setScreen}) {
+  const [type,setType]=useState("item");const [done,setDone]=useState(false);
+  if(done) return (
+    <div style={{padding:20,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:400}}>
+      {UI.check()}<div style={{fontSize:18,fontWeight:700,marginTop:16,marginBottom:8,fontFamily:"'DM Serif Display', Georgia, serif"}}>Deal posted!</div>
+      <div style={{fontSize:13,color:COLORS.textSecondary,textAlign:"center",marginBottom:24}}>Students nearby will see your deal immediately.</div>
+      <button onClick={()=>setScreen("vendorDash")} style={{background:COLORS.primary,color:"white",border:"none",borderRadius:14,padding:"14px 40px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Back to Dashboard</button>
+    </div>
+  );
+  return (
+    <div style={{paddingBottom:20}}>
+      <div style={{padding:"12px 20px",display:"flex",alignItems:"center",gap:12}}><div onClick={()=>setScreen("vendorDash")} style={{cursor:"pointer",padding:4}}>{UI.back()}</div><span style={{fontSize:15,fontWeight:600}}>Post New Deal</span></div>
+      <div style={{padding:"0 20px"}}>
+        <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Deal type</div>
+          <div style={{display:"flex",gap:8}}>{[{key:"item",label:"Individual Item",icon:FoodIcons.bento(36)},{key:"buffet",label:"Buffet Clearing",icon:FoodIcons.buffet(36)}].map(t=>(
+            <div key={t.key} onClick={()=>setType(t.key)} style={{flex:1,background:type===t.key?COLORS.primaryLight:COLORS.card,borderRadius:12,padding:"14px 12px",cursor:"pointer",textAlign:"center",border:`1.5px solid ${type===t.key?COLORS.primary:COLORS.border}`}}>
+              <div style={{marginBottom:6,display:"flex",justifyContent:"center"}}>{t.icon}</div><div style={{fontSize:12,fontWeight:600}}>{t.label}</div>
+            </div>
+          ))}</div>
+        </div>
+        {[{label:type==="buffet"?"Buffet description":"Item name",ph:type==="buffet"?"e.g. Lunch buffet — Asian fusion":"e.g. Chicken Katsu Bento"},{label:"Original price (SGD)",ph:"e.g. 8.90"},{label:"Saver price (SGD)",ph:"e.g. 3.50"},{label:"Quantity available",ph:type==="buffet"?"e.g. 20 servings":"e.g. 5"},{label:"Pickup window",ph:"e.g. 12 PM – 2 PM today"}].map((f,i)=>(
+          <div key={i} style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:600,marginBottom:6}}>{f.label}</div><input placeholder={f.ph} style={{width:"100%",padding:"11px 14px",borderRadius:10,border:`1px solid ${COLORS.border}`,fontSize:14,outline:"none",background:COLORS.card,boxSizing:"border-box",fontFamily:"inherit"}}/></div>
+        ))}
+        <button onClick={()=>setDone(true)} style={{width:"100%",background:COLORS.primary,color:"white",border:"none",borderRadius:14,padding:"16px 20px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Post Deal</button>
+      </div>
+    </div>
+  );
+}
+
+// ==================== MAIN APP ====================
+window.SaverApp = function SaverApp() {
+  const [screen,setScreen]=useState("home");const [tab,setTab]=useState("home");
+  const [selectedDeal,setSelectedDeal]=useState(null);const [selectedVendor,setSelectedVendor]=useState(null);
+  const [notifications,setNotifications]=useState(NOTIFICATIONS);
+  const showNav=["home","mapView","orders","profile","vendorDash"].includes(screen);
+  const go=(s)=>{setScreen(s);if(["home","mapView","orders","profile"].includes(s))setTab(s);};
+
+  const renderScreen=()=>{
+    switch(screen){
+      case "home": return <HomeScreen setScreen={go} setSelectedDeal={setSelectedDeal} setSelectedVendor={setSelectedVendor} notifications={notifications}/>;
+      case "notifications": return <NotificationsScreen setScreen={go} notifications={notifications} setNotifications={setNotifications} setSelectedDeal={setSelectedDeal}/>;
+      case "allStores": return <AllStoresScreen setScreen={go} setSelectedVendor={setSelectedVendor}/>;
+      case "mapView": return <MapScreen setScreen={go} setSelectedVendor={setSelectedVendor} setSelectedDeal={setSelectedDeal}/>;
+      case "deal": return selectedDeal?<DealDetailScreen deal={selectedDeal} setScreen={go}/>:null;
+      case "vendor": return selectedVendor?<VendorScreen vendor={selectedVendor} setScreen={go} setSelectedDeal={setSelectedDeal}/>:null;
+      case "vendorDash": return <VendorDashboard setScreen={go}/>;
+      case "addDeal": return <AddDealScreen setScreen={go}/>;
+      case "orders": return <OrdersScreen/>;
+      case "profile": return <ProfileScreen setScreen={go}/>;
+      default: return null;
+    }
+  };
+
+  return (
+    <div style={{display:"flex",justifyContent:"center",alignItems:"flex-start",minHeight:"100vh",background:"#E8E8E4",padding:"20px 0",fontFamily:"'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif"}}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+      <div style={{width:375,minHeight:700,maxHeight:812,background:COLORS.bg,borderRadius:32,overflow:"hidden",position:"relative",boxShadow:"0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"8px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,fontWeight:600,color:COLORS.text,flexShrink:0}}>
+          <span>9:41</span>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill={COLORS.text}><rect x="0" y="6" width="3" height="6" rx="0.5"/><rect x="4.5" y="4" width="3" height="8" rx="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5"/><rect x="13" y="0" width="3" height="12" rx="0.5"/></svg>
+            <svg width="22" height="12" viewBox="0 0 22 12" fill="none" stroke={COLORS.text} strokeWidth="1"><rect x="0" y="1" width="18" height="10" rx="2"/><rect x="1.5" y="2.5" width="11" height="7" rx="1" fill={COLORS.primary}/><rect x="19" y="4" width="2" height="4" rx="0.5" fill={COLORS.text}/></svg>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",overflowX:"hidden"}}>{renderScreen()}</div>
+        {showNav&&(
+          <div style={{display:"flex",justifyContent:"space-around",alignItems:"center",padding:"10px 0 16px",background:COLORS.card,borderTop:`1px solid ${COLORS.border}`,flexShrink:0}}>
+            {[{key:"home",label:"Home",icon:UI.home},{key:"mapView",label:"Map",icon:UI.map},{key:"orders",label:"Orders",icon:UI.orders},{key:"profile",label:"Profile",icon:UI.profile}].map(n=>(
+              <div key={n.key} onClick={()=>go(n.key)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",minWidth:50}}>
+                {n.icon(tab===n.key)}<span style={{fontSize:10,fontWeight:600,color:tab===n.key?COLORS.primary:COLORS.textSecondary}}>{n.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{display:"flex",justifyContent:"center",paddingBottom:8,flexShrink:0}}><div style={{width:134,height:5,background:COLORS.text,borderRadius:100,opacity:0.2}}/></div>
+      </div>
+    </div>
+  );
+}
+
+</script>
+<script type="text/babel">
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(window.SaverApp));
+</script>
+</body>
+</html>
