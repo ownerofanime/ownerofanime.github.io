@@ -8,11 +8,11 @@ Built as an interactive prototype for the Retail Innovation Competition.
 
 ## Live Demo
 
-**Landing Page** — [https://ownerofanime.github.io/saver-demo/](https://ownerofanime.github.io/saver-demo/)
+**Landing Page** — [https://ownerofanime.github.io/saver-demo/](https://ownerofanime.github.io/)
 
-**Student App** — [https://ownerofanime.github.io/saver-demo/student.html](https://ownerofanime.github.io/saver-demo/student.html)
+**Student App** — [https://ownerofanime.github.io/saver-demo/student.html](https://ownerofanime.github.io/student.html)
 
-**Vendor App** — [https://ownerofanime.github.io/saver-demo/vendor.html](https://ownerofanime.github.io/saver-demo/vendor.html)
+**Vendor App** — [https://ownerofanime.github.io/saver-demo/vendor.html](https://ownerofanime.github.io/vendor.html)
 
 Best viewed on mobile or in browser DevTools with a mobile viewport (375 x 812).
 
